@@ -2,6 +2,40 @@
 
 A screenplay-to-audiobook pipeline using [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) running locally. Parses screenplay-formatted markdown files and generates multi-voice audio with distinct character voices, emotion/delivery cues, and voice cloning from reference samples.
 
+## Preparing Your Book
+
+### 1. Export from Vellum
+
+From Vellum, export the book as rich text format (`.rtf`).
+
+### 2. Convert to Markdown
+
+```bash
+brew install pandoc
+pandoc Temporal-Fuse.rtf -o Temporal-Fuse.md
+```
+
+### 3. Split into chapters using Claude Code
+
+```
+Claude Code prompt: Split the file @Temporal-Fuse.md into separate .md files, one per chapter.
+```
+
+### 4. Create character list using Claude Code
+
+```
+Claude Code prompt: Scan the chapter files one at a time and create a file of major
+and minor characters with descriptions characters.md
+```
+
+### 5. Create screenplay from novel format using Claude Code
+
+```
+Claude Code prompt: For each chapter file in chapters/ create a new file containing
+the screenplay format of the chapter to be used later when creating a multi-voice
+audiobook
+```
+
 ## Features
 
 - **Screenplay parsing** - Reads standard screenplay format (scene headers, character names, stage directions, dialogue) from markdown files
