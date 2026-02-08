@@ -1,0 +1,25 @@
+# Generated audio output
+audio_output/
+
+# Book content (keep out of repo)
+chapters/
+chapters.zip
+Temporal-Fuse.*
+characters.md
+.claude/
+
+# Generated test clips in character_samples
+character_samples/ch*.wav
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Environment
+.env

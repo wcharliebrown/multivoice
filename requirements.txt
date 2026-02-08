@@ -1,0 +1,12 @@
+# Qwen3-TTS Multi-Voice Audiobook Generator
+# Requirements for local TTS generation
+
+# Core TTS package (installs torch and other dependencies)
+qwen-tts>=0.0.5
+
+# Audio file handling
+soundfile>=0.12.0
+
+# Optional: Flash Attention 2 for better performance (CUDA only)
+# Uncomment if you have an NVIDIA GPU:
+# flash-attn>=2.0.0
