@@ -676,13 +676,10 @@ class AudioPostProcessor:
     # Configurable thresholds
     LEADING_TRIM_THRESHOLD = 0.02   # RMS threshold for detecting speech start
     LEADING_TRIM_WINDOW = 480       # Window size in samples (20ms at 24kHz)
-    LEADING_TRIM_MAX_MS = 300       # Max ms to search for artifact (don't trim real speech)
+    LEADING_TRIM_MAX_MS = 150       # Max ms to search for artifact (don't trim real speech)
     TARGET_RMS = 0.08               # Target RMS for loudness normalization
     NOISE_FLOOR_AMPLITUDE = 0.0003  # Nearly inaudible noise floor
     END_PADDING_SECONDS = 0.15      # Silence at end to prevent clipping
-
-    def __init__(self, speed: float = 0.75):
-        self.speed = speed
 
     def process(self, wav, sr: int):
         """Apply all audio post-processing steps."""
@@ -690,19 +687,11 @@ class AudioPostProcessor:
 
         wav = np.array(wav, dtype=np.float32)
 
-        wav = self._trim_leading_artifact(wav, sr)
-        if self.speed != 1.0:
-            wav = self._adjust_speed(wav, sr)
         wav = self._normalize_loudness(wav)
         wav = self._add_noise_floor(wav, sr)
         wav = self._add_end_padding(wav, sr)
 
         return wav
-
-    def _adjust_speed(self, wav, sr: int):
-        """Time-stretch audio to adjust pace. speed < 1.0 = slower, > 1.0 = faster."""
-        import librosa
-        return librosa.effects.time_stretch(wav, rate=self.speed)
 
     def _trim_leading_artifact(self, wav, sr: int):
         """Remove the initial 'burp'/artifact before real speech begins."""
@@ -794,14 +783,16 @@ class TTSGenerator:
     to the VoiceDesign model.
     """
 
-    def __init__(self, voice_config: VoiceConfigManager, dry_run: bool = False, speed: float = 0.75):
+    def __init__(self, voice_config: VoiceConfigManager, dry_run: bool = False, takes: int = 3):
         self.voice_config = voice_config
         self.emotion_parser = EmotionParser()
         self.text_preprocessor = TextPreprocessor()
-        self.audio_postprocessor = AudioPostProcessor(speed=speed)
+        self.audio_postprocessor = AudioPostProcessor()
         self.dry_run = dry_run
+        self.takes = takes
         self.clone_model = None
         self.design_model = None
+        self.quality_model = None  # UTMOSv2 for scoring takes
         self._clone_prompts = {}  # Cache reusable voice clone prompts
         self._needs_clone = False
         self._needs_design = False
@@ -813,7 +804,7 @@ class TTSGenerator:
 
         kwargs = {
             "device_map": device,
-            "torch_dtype": dtype,
+            "dtype": dtype,
         }
 
         # Try to use flash attention if available
@@ -837,18 +828,29 @@ class TTSGenerator:
                     if self._needs_clone and self._needs_design:
                         return
 
+    def _unload_model(self, model_attr: str):
+        """Unload a model to free GPU memory."""
+        model = getattr(self, model_attr)
+        if model is not None:
+            del model
+            setattr(self, model_attr, None)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
     def _load_clone_model(self):
         """Load the Base model for voice cloning."""
         if self.clone_model is not None:
             return
 
         _load_tts_dependencies()
+        # Unload design model to free VRAM
+        self._unload_model("design_model")
         kwargs = self._get_model_kwargs()
 
         print(f"Loading voice clone model: {MODEL_VOICE_CLONE}")
-        print(f"  Device: {kwargs.get('device_map')}, Dtype: {kwargs.get('torch_dtype')}")
+        print(f"  Device: {kwargs.get('device_map')}, Dtype: {kwargs.get('dtype')}")
         self.clone_model = Qwen3TTSModel.from_pretrained(MODEL_VOICE_CLONE, **kwargs)
-        print("  Clone model loaded")
+        print(f"  Clone model loaded (VRAM: {torch.cuda.memory_allocated()/1024**3:.1f}GB)" if torch.cuda.is_available() else "  Clone model loaded")
 
     def _load_design_model(self):
         """Load the VoiceDesign model for characters without samples."""
@@ -856,12 +858,44 @@ class TTSGenerator:
             return
 
         _load_tts_dependencies()
+        # Unload clone model to free VRAM
+        self._unload_model("clone_model")
+        self._clone_prompts.clear()
         kwargs = self._get_model_kwargs()
 
         print(f"Loading voice design model: {MODEL_VOICE_DESIGN}")
-        print(f"  Device: {kwargs.get('device_map')}, Dtype: {kwargs.get('torch_dtype')}")
+        print(f"  Device: {kwargs.get('device_map')}, Dtype: {kwargs.get('dtype')}")
         self.design_model = Qwen3TTSModel.from_pretrained(MODEL_VOICE_DESIGN, **kwargs)
         print("  Design model loaded")
+
+    def _load_quality_model(self):
+        """Load UTMOSv2 model for scoring TTS quality."""
+        if self.quality_model is not None:
+            return
+        import utmosv2
+        device = _get_device()
+        print(f"Loading UTMOSv2 quality model on {device}")
+        self.quality_model = utmosv2.create_model(pretrained=True, device=device)
+        print("  UTMOSv2 loaded")
+
+    def _score_quality(self, wav, sr: int) -> float:
+        """Score audio quality using UTMOSv2. Returns MOS score (1.0-5.0)."""
+        import torch
+        import numpy as np
+        self._load_quality_model()
+        # UTMOSv2 expects 16kHz; resample if needed
+        if sr != 16000:
+            import torchaudio
+            wav_tensor = torch.tensor(wav, dtype=torch.float32).unsqueeze(0)
+            wav_tensor = torchaudio.functional.resample(wav_tensor, sr, 16000)
+            data = wav_tensor.squeeze(0)
+        else:
+            data = torch.tensor(wav, dtype=torch.float32)
+        score = self.quality_model.predict(data=data, sr=16000)
+        # predict returns a tensor; extract scalar
+        if hasattr(score, 'item'):
+            return score.item()
+        return float(score)
 
     def _get_clone_prompt(self, character: str):
         """Get or create a cached voice clone prompt for a character."""
@@ -1003,15 +1037,30 @@ class TTSGenerator:
                 print(f"      Instruction: {full_instruction[:80]}...")
             return None, None
 
-        if mode == "clone":
-            wav, sr = self._generate_clone(clean_text, character, full_instruction)
+        # Generate multiple takes and keep the best by UTMOSv2 quality score
+        candidates = []
+        sr = None
+        for take in range(self.takes):
+            if mode == "clone":
+                wav, sr = self._generate_clone(clean_text, character, full_instruction)
+            else:
+                wav, sr = self._generate_design(clean_text, full_instruction)
+            wav = self.audio_postprocessor.process(wav, sr)
+            candidates.append(wav)
+
+        if self.takes > 1:
+            scores = []
+            for wav in candidates:
+                score = self._score_quality(wav, sr)
+                scores.append(score)
+            best_idx = max(range(len(scores)), key=lambda i: scores[i])
+            best_wav = candidates[best_idx]
+            score_strs = ", ".join(f"{s:.2f}" for s in scores)
+            print(f"        (MOS: [{score_strs}] -> kept take {best_idx + 1}/{self.takes})")
         else:
-            wav, sr = self._generate_design(clean_text, full_instruction)
+            best_wav = candidates[0]
 
-        # Apply audio post-processing (trim artifact, normalize, noise floor)
-        wav = self.audio_postprocessor.process(wav, sr)
-
-        return wav, sr
+        return best_wav, sr
 
     def _generate_clone(self, text: str, character: str, instruct: str) -> tuple:
         """Generate audio using voice cloning from a reference sample."""
@@ -1249,10 +1298,10 @@ def main():
         help="Regenerate specific line(s) only. Examples: '11', '11,15,20', '11-20'. Requires --chapter."
     )
     parser.add_argument(
-        '--speed',
-        type=float,
-        default=0.75,
-        help="Playback speed: < 1.0 = slower, 1.0 = original TTS pace (default: 0.75)"
+        '--takes',
+        type=int,
+        default=3,
+        help="Number of TTS takes per line; keeps the shortest to reduce artifacts (default: 3)"
     )
     parser.add_argument(
         '--save-voice-config',
@@ -1309,7 +1358,7 @@ def main():
         print(f"Regenerating line(s): {sorted(line_numbers)}")
 
     # Initialize TTS generator
-    tts = TTSGenerator(voice_config, dry_run=args.dry_run, speed=args.speed)
+    tts = TTSGenerator(voice_config, dry_run=args.dry_run, takes=args.takes)
     assembler = AudioAssembler()
 
     # Process chapters

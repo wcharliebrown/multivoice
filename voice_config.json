@@ -3,10 +3,9 @@
     "MARTIN": "American English, A middle-aged male voice with a thick New Jersey accent. The tone is gravelly, raspy, and boisterous. The delivery is slightly nasal, characterized by gruff, slow articulation and a mischievous, comedic personality.",
     "MARTIN (V.O.)": "American English, A middle-aged male voice with a thick New Jersey accent. The tone is hushed sotto voche, raspy. The delivery is slightly nasal, characterized by gruff, slow articulation and a mischievous, comedic personality.",
     "ANGEL": "American English, A bright, youthful, and highly articulate female voice. The tone is cheerful, crisp, and resonant, conveying intelligence and approachability. The delivery is energetic and fast-paced with perfect diction and a melodic, 'smiling' quality. It sounds friendly, professional, and slightly bubbly.",
-    "NANNA": "American English, A senior female voice with a bright, cheerful, and 'grandmotherly' tone. The texture is light, breathy, and melodic. The delivery is rhythmic and pleasant, characterized by a persistent 'smiling' quality and a gentle, midwestern-American accent. It should sound sweet and innocent, yet carry a subtle, mischievous undertone as if sharing a secret joke.",
+    "NANNA": "American English, midwestern accent. A senior female voice with a bright, cheerful, and 'grandmotherly' tone. The texture is light, breathy, and melodic. The delivery is slow,rhythmic and pleasant, characterized by a persistent 'smiling' quality and a gentle.",
     "NARRATOR": "American English, A middle-aged male voice with a thick New Jersey accent. The tone is gravelly, raspy, and boisterous with a high-energy, manic quality. The delivery is fast-paced, loud, and slightly nasal, characterized by gruff, punchy articulation and a mischievous, comedic personality.",
     "HOMELESS GUY": "A tired, world-weary older male voice. Slow, mumbling delivery suggesting exhaustion and disinterest.",
-    "HOMELESS-GUY": "A tired, world-weary older male voice. Slow, mumbling delivery suggesting exhaustion and disinterest.",
     "THOMAS": "A cold, artificial-sounding male voice with precise diction. Condescending and manipulative tone.",
     "THURBER": "British English, A mature, authoritative British male voice with a deep, resonant baritone and a noticeable gravelly texture. The delivery is theatrical and highly opinionated, featuring dramatic pauses and exaggerated emphasis on key adjectives. The accent is a refined, upper-mid British RP. The tone should sound slightly cynical yet mischievous, with occasional bursts of loud, boisterous energy.",
     "THURBER MINGUS": "British English, A mature, authoritative British male voice with a deep, resonant baritone and a noticeable gravelly texture. The delivery is theatrical and highly opinionated, featuring dramatic pauses and exaggerated emphasis on key adjectives. The accent is a refined, upper-mid British RP. The tone should sound slightly cynical yet mischievous, with occasional bursts of loud, boisterous energy.",
@@ -28,16 +27,16 @@
     "QUAN": "A young boy's voice around ten years old. Curious and excited, with slight Chinese accent.",
     "STATE TROOPER": "A young male police officer voice. Authoritative but somewhat nervous.",
     "THE COMMITTEES": "Multiple AI voices speaking in unison, neutral and bureaucratic.",
-    "CASHIER": "A young adult service worker voice, casual and slightly bored. Generic American accent.",
+    "CASHIER": "A confident boisterous,Female mid-thirties American Accent..",
     "HOST": "A friendly, welcoming voice suitable for a restaurant or venue host. Professional and pleasant.",
     "HOTEL CLERK": "A professional service voice, polite and efficient. Neutral American accent.",
     "JUNKYARD GUY": "A gruff, working-class male voice. Rough around the edges, direct and no-nonsense.",
-    "LIBRARIAN": "A quiet, measured female voice. Soft-spoken and intellectual.",
-    "WAITRESS": "A friendly, casual female voice. Upbeat and professional service tone.",
+    "LIBRARIAN": "A friendly and casual female voice. Upbeat and professional service tone. Mid fourties Female American Accent.",
+    "WAITRESS": "A friendly, casual female voice. Upbeat and professional service tone. Mid twenties Female American Accent.",
     "VOICE FROM OFFICE": "A muffled male voice, as if heard through a wall or door. Professional but distant.",
     "PA SYSTEM (MARTIN'S VOICE)": "A middle-aged male voice with a distinctive gravelly, raspy quality similar to Danny DeVito. Sounds like it's coming through a public address speaker system.",
     "PA SYSTEM (REGGIE'S VOICE)": "A warm, patient male voice with calm demeanor. Sounds like it's coming through a public address speaker system.",
-    "PIZZA GUY": "Teenage male American accent, friendly and casual."
+    "PIZZA GUY": "American English,Teenage, deep, male, early twenties, midwestern accent, friendly and casual."
   },
   "_comment": "Edit the voice descriptions above to customize how each character sounds. These descriptions are passed to Qwen3-TTS VoiceDesign model to synthesize unique voices."
 }
