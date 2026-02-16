@@ -654,9 +654,12 @@ class TextPreprocessor:
 
     def _expand_pauses(self, text: str) -> str:
         """Expand punctuation pause markers for longer TTS pauses."""
-        # Ellipsis -> longer pause marker
-        text = text.replace('...', ' ... ')
-        text = text.replace('…', ' ... ')
+        # Trailing ellipsis -> period (prevents TTS from generating endlessly)
+        text = re.sub(r'\.\.\.[\s]*$', '.', text)
+        text = re.sub(r'…[\s]*$', '.', text)
+        # Mid-sentence ellipsis -> spaced pause marker
+        text = text.replace('...', ', ')
+        text = text.replace('…', ', ')
         return text
 
     def _clean_whitespace(self, text: str) -> str:
@@ -673,10 +676,6 @@ class TextPreprocessor:
 class AudioPostProcessor:
     """Post-processes generated audio to fix common TTS artifacts."""
 
-    # Configurable thresholds
-    LEADING_TRIM_THRESHOLD = 0.02   # RMS threshold for detecting speech start
-    LEADING_TRIM_WINDOW = 480       # Window size in samples (20ms at 24kHz)
-    LEADING_TRIM_MAX_MS = 150       # Max ms to search for artifact (don't trim real speech)
     TARGET_RMS = 0.08               # Target RMS for loudness normalization
     NOISE_FLOOR_AMPLITUDE = 0.0003  # Nearly inaudible noise floor
     END_PADDING_SECONDS = 0.15      # Silence at end to prevent clipping
@@ -690,54 +689,6 @@ class AudioPostProcessor:
         wav = self._normalize_loudness(wav)
         wav = self._add_noise_floor(wav, sr)
         wav = self._add_end_padding(wav, sr)
-
-        return wav
-
-    def _trim_leading_artifact(self, wav, sr: int):
-        """Remove the initial 'burp'/artifact before real speech begins."""
-        import numpy as np
-
-        max_samples = int(self.LEADING_TRIM_MAX_MS / 1000.0 * sr)
-        window = self.LEADING_TRIM_WINDOW
-
-        # Walk through the beginning in small windows
-        # Find first window that's silent AFTER initial energy (the artifact)
-        # Then find where real speech starts after that
-        if len(wav) < window * 3:
-            return wav
-
-        # Compute short-time energy for the beginning
-        num_windows = min(max_samples // window, len(wav) // window)
-        energies = []
-        for i in range(num_windows):
-            chunk = wav[i * window:(i + 1) * window]
-            rms = np.sqrt(np.mean(chunk ** 2))
-            energies.append(rms)
-
-        if not energies:
-            return wav
-
-        # Strategy: find the first sustained silence gap in the initial portion,
-        # then trim everything before the speech that follows it.
-        # This removes the initial burst (artifact) before real speech.
-        found_energy = False
-        found_gap = False
-        trim_point = 0
-
-        for i, rms in enumerate(energies):
-            if not found_energy and rms > self.LEADING_TRIM_THRESHOLD:
-                found_energy = True
-            elif found_energy and not found_gap and rms < self.LEADING_TRIM_THRESHOLD * 0.5:
-                found_gap = True
-            elif found_gap and rms > self.LEADING_TRIM_THRESHOLD:
-                # Real speech starts here - trim everything before
-                trim_point = i * window
-                # Back up slightly to not clip the attack
-                trim_point = max(0, trim_point - window // 2)
-                break
-
-        if trim_point > 0:
-            return wav[trim_point:]
 
         return wav
 
@@ -873,15 +824,14 @@ class TTSGenerator:
         if self.quality_model is not None:
             return
         import utmosv2
-        device = _get_device()
-        print(f"Loading UTMOSv2 quality model on {device}")
-        self.quality_model = utmosv2.create_model(pretrained=True, device=device)
+        # Use CPU for UTMOSv2 — it's a small model and MPS triggers CUDA errors internally
+        print("Loading UTMOSv2 quality model on cpu")
+        self.quality_model = utmosv2.create_model(pretrained=True, device="cpu")
         print("  UTMOSv2 loaded")
 
     def _score_quality(self, wav, sr: int) -> float:
         """Score audio quality using UTMOSv2. Returns MOS score (1.0-5.0)."""
         import torch
-        import numpy as np
         self._load_quality_model()
         # UTMOSv2 expects 16kHz; resample if needed
         if sr != 16000:
@@ -891,7 +841,7 @@ class TTSGenerator:
             data = wav_tensor.squeeze(0)
         else:
             data = torch.tensor(wav, dtype=torch.float32)
-        score = self.quality_model.predict(data=data, sr=16000)
+        score = self.quality_model.predict(data=data, sr=16000, device="cpu", num_workers=0, verbose=False)
         # predict returns a tensor; extract scalar
         if hasattr(score, 'item'):
             return score.item()
