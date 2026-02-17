@@ -1,0 +1,10 @@
+{
+  "voices": {
+    "JOHN": "American English, A middle-aged male voice with a gravelly tone. The delivery is slow and deliberate, with a mischievous, comedic personality.",
+    "JOHN (V.O.)": "American English, A middle-aged male voice with a gravelly tone. Hushed, sotto voce delivery for internal monologue.",
+    "JANE": "American English, A bright, youthful female voice. The tone is cheerful and energetic with perfect diction and a melodic quality.",
+    "NARRATOR": "American English, A warm, authoritative male voice. Clear and measured delivery suitable for narration.",
+    "DETECTIVE": "American English, A mature, deep-baritone male voice. Deadpan and authoritative with a slow, deliberate pace.",
+    "CHILD": "American English, A young child's voice around ten years old. Curious and excited."
+  }
+}

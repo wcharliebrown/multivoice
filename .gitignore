@@ -8,7 +8,8 @@ Temporal-Fuse.*
 characters.md
 .claude/
 
-# Voice samples (keep local, not in repo)
+# Voice config and samples (keep local, not in repo)
+voice_config.json
 character_samples/
 
 # Python
