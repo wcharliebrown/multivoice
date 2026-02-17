@@ -212,7 +212,6 @@ The first run downloads the Qwen3-TTS models (~3.5GB) and UTMOSv2 weights. Subse
 │   ├── chapter_01/           # Individual line WAVs
 │   ├── chapter_01/ch01_stats.txt  # Quality scores per line
 │   └── chapter_01_complete.wav
-├── generate_all_chapters.sh  # Batch generation script
 ├── requirements.txt
 ├── setup_tts.sh
 └── README.md

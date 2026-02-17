@@ -8,9 +8,10 @@ Temporal-Fuse.*
 characters.md
 .claude/
 
-# Voice config and samples (keep local, not in repo)
+# Project-specific files (keep local, not in repo)
 voice_config.json
 character_samples/
+generate_all_chapters.sh
 
 # Python
 __pycache__/
