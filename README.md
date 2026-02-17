@@ -55,16 +55,24 @@ Prompt: For each chapter file in chapters/ create a new file in chapters/screenp
 
 ### 6. Record or source voice samples (optional but recommended)
 
-For each major character, record a clean 10-30 second WAV of natural speech and place it in `character_samples/` named `Character_Name_sample.wav` (spaces become underscores). Characters with samples use voice cloning for significantly better quality. Characters without samples will use AI-generated voices from text descriptions.
+For each major character, record a clean 10-30 second WAV of natural speech and place it in `character_samples/` named `Character_Name_sample.wav` (spaces become underscores). See `character_samples_examples/README.md` for naming conventions and requirements. Characters with samples use voice cloning for significantly better quality. Characters without samples will use AI-generated voices from text descriptions.
 
 ### 7. Configure character voices using Claude Code
+
+Copy the example config as a starting point:
+
+```bash
+cp voice_config_example.json voice_config.json
+```
+
+Then use Claude Code to populate it from your character list:
 
 ```
 Prompt: Read characters.md and generate a voice_config.json with detailed voice
          descriptions for each character suitable for text-to-speech synthesis
 ```
 
-Edit `voice_config.json` afterward to fine-tune any descriptions.
+Edit `voice_config.json` afterward to fine-tune any descriptions. This file is kept out of the repo (via `.gitignore`) since it contains project-specific character data.
 
 ## Requirements
 
@@ -192,10 +200,12 @@ The first run downloads the Qwen3-TTS models (~3.5GB) and UTMOSv2 weights. Subse
 ```
 .
 ├── tts_generator.py          # Main pipeline script
-├── voice_config.json         # Character voice descriptions
-├── character_samples/        # Reference WAV files for voice cloning
+├── voice_config.json         # Character voice descriptions (not in repo)
+├── voice_config_example.json # Example voice config template
+├── character_samples/        # Reference WAV files for voice cloning (not in repo)
 │   ├── Character_Name_sample.wav
 │   └── ...
+├── character_samples_examples/  # Documentation for voice samples
 ├── chapters/                 # Chapter markdown files (not in repo)
 │   └── screenplay/           # Screenplay-formatted versions
 ├── audio_output/             # Generated audio (not in repo)
@@ -236,7 +246,7 @@ I can cure *any* disease!
 
 ## Voice Configuration
 
-Edit `voice_config.json` to customize character voices. Each entry maps a character name to a text description passed to the TTS model:
+Copy `voice_config_example.json` to `voice_config.json` and edit it to customize character voices. Each entry maps a character name to a text description passed to the TTS model:
 
 ```json
 {
