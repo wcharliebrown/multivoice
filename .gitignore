@@ -8,8 +8,8 @@ Temporal-Fuse.*
 characters.md
 .claude/
 
-# Generated test clips in character_samples
-character_samples/ch*.wav
+# Voice samples (keep local, not in repo)
+character_samples/
 
 # Python
 __pycache__/
