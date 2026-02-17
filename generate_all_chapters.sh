@@ -1,0 +1,30 @@
+#!/bin/bash
+conda activate qwen3-tts
+#python tts_generator.py --chapter 0 --assemble
+#python tts_generator.py --chapter 1 --assemble
+#python tts_generator.py --chapter 2 --assemble
+#python tts_generator.py --chapter 3 --assemble
+#python tts_generator.py --chapter 4 --assemble
+#python tts_generator.py --chapter 5 --assemble
+#python tts_generator.py --chapter 6 --assemble
+#python tts_generator.py --chapter 7 --assemble
+#python tts_generator.py --chapter 8 --assemble
+#python tts_generator.py --chapter 9 --assemble
+#python tts_generator.py --chapter 10 --assemble
+#python tts_generator.py --chapter 11 --assemble
+#python tts_generator.py --chapter 12 --assemble
+#python tts_generator.py --chapter 13 --assemble
+#python tts_generator.py --chapter 14 --assemble
+python tts_generator.py --chapter 15 --assemble
+#python tts_generator.py --chapter 16 --assemble
+#python tts_generator.py --chapter 17 --assemble
+#python tts_generator.py --chapter 18 --assemble
+#python tts_generator.py --chapter 19 --assemble
+#python tts_generator.py --chapter 20 --assemble
+#python tts_generator.py --chapter 21 --assemble
+#python tts_generator.py --chapter 22 --assemble
+#python tts_generator.py --chapter 23 --assemble
+#python tts_generator.py --chapter 24 --assemble
+#python tts_generator.py --chapter 25 --assemble
+python tts_generator.py --chapter 26 --assemble
+python tts_generator.py --chapter 27 --assemble

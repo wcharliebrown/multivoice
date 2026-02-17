@@ -405,6 +405,10 @@ class ScreenplayParser:
             match = self.CHARACTER_LINE.match(line)
             if match and not line.startswith('**'):
                 flush_dialogue()
+                # Create a default scene if none exists yet
+                if current_scene is None:
+                    current_scene = Scene(number=1, location=chapter.title, time_of_day="")
+                    chapter.scenes.append(current_scene)
                 current_character = match.group(1).strip()
                 continue
 
@@ -734,16 +738,19 @@ class TTSGenerator:
     to the VoiceDesign model.
     """
 
-    def __init__(self, voice_config: VoiceConfigManager, dry_run: bool = False, takes: int = 3):
+    MOS_THRESHOLD = 3.5     # MOS score considered "good enough" to skip further takes
+    MAX_TAKES = 5           # Maximum number of takes per line
+
+    def __init__(self, voice_config: VoiceConfigManager, dry_run: bool = False):
         self.voice_config = voice_config
         self.emotion_parser = EmotionParser()
         self.text_preprocessor = TextPreprocessor()
         self.audio_postprocessor = AudioPostProcessor()
         self.dry_run = dry_run
-        self.takes = takes
         self.clone_model = None
         self.design_model = None
         self.quality_model = None  # UTMOSv2 for scoring takes
+        self._last_take_stats = None
         self._clone_prompts = {}  # Cache reusable voice clone prompts
         self._needs_clone = False
         self._needs_design = False
@@ -987,28 +994,39 @@ class TTSGenerator:
                 print(f"      Instruction: {full_instruction[:80]}...")
             return None, None
 
-        # Generate multiple takes and keep the best by UTMOSv2 quality score
-        candidates = []
+        # Generate takes, score each, and stop early if quality is good enough
+        best_wav = None
+        best_score = -1.0
+        best_take = 0
+        scores = []
         sr = None
-        for take in range(self.takes):
+
+        for take in range(self.MAX_TAKES):
             if mode == "clone":
                 wav, sr = self._generate_clone(clean_text, character, full_instruction)
             else:
                 wav, sr = self._generate_design(clean_text, full_instruction)
             wav = self.audio_postprocessor.process(wav, sr)
-            candidates.append(wav)
+            score = self._score_quality(wav, sr)
+            scores.append(score)
 
-        if self.takes > 1:
-            scores = []
-            for wav in candidates:
-                score = self._score_quality(wav, sr)
-                scores.append(score)
-            best_idx = max(range(len(scores)), key=lambda i: scores[i])
-            best_wav = candidates[best_idx]
-            score_strs = ", ".join(f"{s:.2f}" for s in scores)
-            print(f"        (MOS: [{score_strs}] -> kept take {best_idx + 1}/{self.takes})")
-        else:
-            best_wav = candidates[0]
+            if score > best_score:
+                best_wav = wav
+                best_score = score
+                best_take = take + 1
+
+            if score >= self.MOS_THRESHOLD:
+                break
+
+        score_strs = ", ".join(f"{s:.2f}" for s in scores)
+        print(f"        (MOS: [{score_strs}] -> kept take {best_take}/{len(scores)})")
+
+        self._last_take_stats = {
+            "scores": scores,
+            "best_take": best_take,
+            "total_takes": len(scores),
+            "best_score": best_score,
+        }
 
         return best_wav, sr
 
@@ -1057,6 +1075,11 @@ class TTSGenerator:
             if self._needs_design:
                 self._load_design_model()
 
+        stats_path = output_dir / f"ch{chapter.number:02d}_stats.txt"
+        stats_lines = [f"Chapter {chapter.number}: {chapter.title}\n"]
+        stats_lines.append(f"{'Line':<6} {'Character':<25} {'Takes':<6} {'Best':<6} {'Scores':<40} {'Text'}\n")
+        stats_lines.append("-" * 120 + "\n")
+
         line_index = 0
         for scene in chapter.scenes:
             print(f"\n  Scene {scene.number}: {scene.location} - {scene.time_of_day}")
@@ -1070,12 +1093,34 @@ class TTSGenerator:
                 direction_info = f" ({line.stage_direction})" if line.stage_direction else ""
                 print(f"    [{line_index}/{total_lines}] {line.character}{direction_info}: {line.text[:40]}...")
 
+                self._last_take_stats = None
                 wav, sr = self.generate_audio(line.text, line.character, line.stage_direction)
 
                 if wav is not None:
                     sf.write(str(output_path), wav, sr)
                     audio_files.append(output_path)
                     print(f"      -> Saved: {filename}")
+
+                # Record stats
+                if self._last_take_stats:
+                    s = self._last_take_stats
+                    score_strs = ", ".join(f"{sc:.2f}" for sc in s["scores"])
+                    text_preview = line.text[:50].replace('\n', ' ')
+                    stats_lines.append(
+                        f"{line_index:<6} {line.character:<25} {s['total_takes']:<6} {s['best_score']:<6.2f} [{score_strs}]{'':40}"[:90]
+                        + f" {text_preview}\n"
+                    )
+
+        # Write stats summary
+        total_takes = sum(1 for l in stats_lines if l[0].isdigit()) if not self.dry_run else 0
+        if not self.dry_run and audio_files:
+            # Parse stats for summary
+            all_stats = [l for l in stats_lines[3:] if l.strip()]
+            stats_lines.append("\n" + "=" * 120 + "\n")
+            stats_lines.append(f"Total lines: {line_index}\n")
+            with open(stats_path, 'w') as f:
+                f.writelines(stats_lines)
+            print(f"\n  Stats saved: {stats_path}")
 
         return audio_files
 
@@ -1093,6 +1138,9 @@ class TTSGenerator:
             if self._needs_design:
                 self._load_design_model()
 
+        stats_path = output_dir / f"ch{chapter.number:02d}_stats.txt"
+        stats_entries = []
+
         total_lines = sum(len(scene.lines) for scene in chapter.scenes)
         line_index = 0
         for scene in chapter.scenes:
@@ -1107,6 +1155,7 @@ class TTSGenerator:
                 direction_info = f" ({line.stage_direction})" if line.stage_direction else ""
                 print(f"    [{line_index}/{total_lines}] {line.character}{direction_info}: {line.text[:40]}...")
 
+                self._last_take_stats = None
                 wav, sr = self.generate_audio(line.text, line.character, line.stage_direction)
 
                 if wav is not None:
@@ -1114,8 +1163,25 @@ class TTSGenerator:
                     regenerated.append(output_path)
                     print(f"      -> Saved: {filename}")
 
+                if self._last_take_stats:
+                    s = self._last_take_stats
+                    score_strs = ", ".join(f"{sc:.2f}" for sc in s["scores"])
+                    text_preview = line.text[:50].replace('\n', ' ')
+                    stats_entries.append(
+                        f"{line_index:<6} {line.character:<25} {s['total_takes']:<6} {s['best_score']:<6.2f} [{score_strs}]{'':40}"[:90]
+                        + f" {text_preview}\n"
+                    )
+
         if not regenerated:
             print(f"  Warning: No matching lines found for {sorted(line_numbers)}")
+
+        # Append regenerated line stats to file
+        if stats_entries and not self.dry_run:
+            with open(stats_path, 'a') as f:
+                f.write(f"\n--- Regenerated lines ---\n")
+                for entry in stats_entries:
+                    f.write(entry)
+            print(f"\n  Stats appended: {stats_path}")
 
         return regenerated
 
@@ -1248,12 +1314,6 @@ def main():
         help="Regenerate specific line(s) only. Examples: '11', '11,15,20', '11-20'. Requires --chapter."
     )
     parser.add_argument(
-        '--takes',
-        type=int,
-        default=3,
-        help="Number of TTS takes per line; keeps the shortest to reduce artifacts (default: 3)"
-    )
-    parser.add_argument(
         '--save-voice-config',
         action='store_true',
         help="Save default voice configuration to file for customization"
@@ -1308,7 +1368,7 @@ def main():
         print(f"Regenerating line(s): {sorted(line_numbers)}")
 
     # Initialize TTS generator
-    tts = TTSGenerator(voice_config, dry_run=args.dry_run, takes=args.takes)
+    tts = TTSGenerator(voice_config, dry_run=args.dry_run)
     assembler = AudioAssembler()
 
     # Process chapters
