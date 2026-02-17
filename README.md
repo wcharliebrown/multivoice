@@ -1,6 +1,6 @@
 # Multivoice
 
-A screenplay-to-audiobook pipeline using [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) running locally. Parses screenplay-formatted markdown files and generates multi-voice audio with distinct character voices, emotion/delivery cues, and voice cloning from reference samples.
+A novel-to-screenplay-to-audiobook pipeline using [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) running locally. Parses screenplay-formatted markdown files and generates multi-voice audio with distinct character voices, emotion/delivery cues, and voice cloning from reference samples.
 
 ## Features
 
@@ -79,6 +79,7 @@ Edit `voice_config.json` afterward to fine-tune any descriptions. This file is k
 - Python 3.12+
 - macOS (Apple Silicon with MPS) or Linux (NVIDIA GPU with CUDA)
 - ~8GB RAM for the TTS models
+- Claude Code account. Currently $20/mo Used for the conversion from manuscript to screenplay and extraction of character descriptions.
 
 ## Setup
 
