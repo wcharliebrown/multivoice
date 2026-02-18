@@ -738,8 +738,9 @@ class TTSGenerator:
     to the VoiceDesign model.
     """
 
-    MOS_THRESHOLD = 3.5     # MOS score considered "good enough" to skip further takes
-    MAX_TAKES = 5           # Maximum number of takes per line
+    MOS_THRESHOLD = 3.5         # MOS score considered "good enough" to skip further takes
+    MAX_TAKES = 5               # Maximum number of takes per line
+    SENTENCE_PAUSE_SECONDS = 0.3  # Silence inserted between sentences
 
     def __init__(self, voice_config: VoiceConfigManager, dry_run: bool = False):
         self.voice_config = voice_config
@@ -913,33 +914,85 @@ class TTSGenerator:
 
         return segments
 
+    def _split_sentences(self, text: str) -> list:
+        """Split text into sentence segments separated by inter-sentence pauses.
+
+        Returns a list of ('text', str) and ('pause', float) segments.
+        Single-sentence text returns a single ('text', ...) entry with no pauses.
+        """
+        # Temporarily replace common abbreviations so their periods aren't treated
+        # as sentence endings.
+        abbreviations = [
+            'Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Prof.', 'Sr.', 'Jr.', 'St.',
+            'vs.', 'etc.', 'i.e.', 'e.g.', 'U.S.', 'U.K.', 'No.',
+        ]
+        protected = text
+        replacements = {}
+        for i, abbr in enumerate(abbreviations):
+            if abbr in protected:
+                placeholder = f'\x00A{i}\x00'
+                replacements[placeholder] = abbr
+                protected = protected.replace(abbr, placeholder)
+
+        # Split on sentence-ending punctuation followed by whitespace + capital letter
+        parts = re.split(r'(?<=[.!?])\s+(?=[A-Z"])', protected)
+
+        # Restore abbreviations and discard empty parts
+        sentences = []
+        for part in parts:
+            for placeholder, abbr in replacements.items():
+                part = part.replace(placeholder, abbr)
+            part = part.strip()
+            if part:
+                sentences.append(part)
+
+        if len(sentences) <= 1:
+            return [('text', text.strip())]
+
+        segments = []
+        for i, sentence in enumerate(sentences):
+            segments.append(('text', sentence))
+            if i < len(sentences) - 1:
+                segments.append(('pause', self.SENTENCE_PAUSE_SECONDS))
+        return segments
+
     def generate_audio(self, text: str, character: str,
                        stage_direction: Optional[str] = None) -> tuple:
         """Generate audio for a line of dialogue with emotion/delivery context."""
         import numpy as np
 
-        # Extract [beat] / [long beat] markers before other processing
-        segments = self._extract_beats(text)
-        has_beats = any(s[0] == 'pause' for s in segments)
+        # 1. Split on [beat] / [long beat] markers
+        beat_segments = self._extract_beats(text)
 
-        # If no beats, process normally as a single segment
-        if not has_beats:
-            return self._generate_segment(text, character, stage_direction)
+        # 2. Expand each text segment into individual sentences with pauses between
+        segments = []
+        for seg_type, seg_value in beat_segments:
+            if seg_type == 'pause':
+                segments.append(('pause', seg_value))
+            else:
+                segments.extend(self._split_sentences(seg_value))
 
-        # Multiple segments separated by beats — generate each and stitch
+        # Fast path: single sentence, no pauses — skip stitching overhead
+        pause_count = sum(1 for s in segments if s[0] == 'pause')
+        text_segments = [s for s in segments if s[0] == 'text']
+        if pause_count == 0 and len(text_segments) == 1:
+            return self._generate_segment(text_segments[0][1], character, stage_direction)
+
+        # Dry-run: just print the structure
         if self.dry_run:
             for seg_type, seg_value in segments:
                 if seg_type == 'pause':
                     print(f"      [PAUSE {seg_value}s]")
                 else:
-                    wav, sr = self._generate_segment(seg_value, character, stage_direction)
+                    self._generate_segment(seg_value, character, stage_direction)
             return None, None
 
+        # Generate each text segment and stitch with silence gaps
         audio_parts = []
         sr = None
         for seg_type, seg_value in segments:
             if seg_type == 'pause':
-                if sr:
+                if sr is not None:
                     silence = np.zeros(int(seg_value * sr), dtype=np.float32)
                     audio_parts.append(silence)
             else:

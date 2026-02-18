@@ -10,6 +10,7 @@ A novel-to-screenplay-to-audiobook pipeline using [Qwen3-TTS](https://github.com
 - **Emotion and delivery** - Extracts stage directions and inline cues (e.g., `(shouting)`, `(whispering)`) and passes them as TTS instructions
 - **Emphasis** - Markdown `*emphasis*` and `**bold**` markers are passed as stress instructions to the TTS
 - **Beat pauses** - `[beat]` and `[long beat]` tags in dialogue insert real silence gaps (0.7s and 1.5s)
+- **Sentence pauses** - Multi-sentence lines are automatically split and a 0.3s pause is inserted between sentences for natural pacing
 - **Quality scoring** - Each line is scored by [UTMOSv2](https://github.com/sarulab-speech/UTMOSv2) (MOS 1-5); if the first take scores below threshold, additional takes are generated (up to 5) and the best is kept
 - **Audio post-processing** - RMS loudness normalization, noise floor, end padding
 - **Chapter assembly** - Stitches individual line WAVs into complete chapter audio files
@@ -175,7 +176,7 @@ Use this to identify lines that may need re-recording with `--line`.
 After generating a chapter, review the stats file and listen through:
 
 1. **Check the stats file** - Look for lines with low MOS scores or lines that needed many takes; these are candidates for re-recording or screenplay edits
-2. **Adjust pacing in the screenplay** - Add `[beat]` for a 0.7s pause or `[long beat]` for a 1.5s pause anywhere in dialogue
+2. **Adjust pacing in the screenplay** - Add `[beat]` for a 0.7s pause or `[long beat]` for a 1.5s pause anywhere in dialogue; multi-sentence lines automatically get a 0.3s inter-sentence pause (adjustable via `SENTENCE_PAUSE_SECONDS` in `TTSGenerator`)
 3. **Fix emphasis** - Wrap words in `*asterisks*` to stress them, or remove emphasis that sounds unnatural
 4. **Tweak delivery** - Add or change stage directions like `(whispering)`, `(shouting)`, `(sarcastic)` after the character name
 5. **Regenerate only what changed** - Use `--line` to regenerate specific lines without reprocessing the entire chapter:
