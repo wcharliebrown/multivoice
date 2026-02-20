@@ -12,7 +12,7 @@ A novel-to-screenplay-to-audiobook pipeline using [Qwen3-TTS](https://github.com
 - **Beat pauses** - `[beat]` and `[long beat]` tags in dialogue insert real silence gaps (0.7s and 1.5s)
 - **Sentence pauses** - Multi-sentence lines are automatically split and a 0.3s pause is inserted between sentences for natural pacing
 - **Quality scoring** - Each line is scored by [UTMOSv2](https://github.com/sarulab-speech/UTMOSv2) (MOS 1-5); if the first take scores below threshold, additional takes are generated (up to 5) and the best is kept
-- **Audio post-processing** - RMS loudness normalization, noise floor, end padding
+- **Audio post-processing** - RMS loudness normalization, noise floor, end padding; direction-aware volume scaling (shouting is louder, whispering is softer) and high-pass filtering for whisper directions
 - **Chapter assembly** - Stitches individual line WAVs into complete chapter audio files
 - **Selective regeneration** - Regenerate specific lines without re-running the entire chapter
 - **Stats logging** - Per-chapter stats file with MOS scores, take counts, and text for each line

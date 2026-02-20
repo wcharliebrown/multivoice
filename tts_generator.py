@@ -684,7 +684,35 @@ class AudioPostProcessor:
     NOISE_FLOOR_AMPLITUDE = 0.0003  # Nearly inaudible noise floor
     END_PADDING_SECONDS = 0.15      # Silence at end to prevent clipping
 
-    def process(self, wav, sr: int):
+    # Volume multipliers applied after normalization, keyed by direction keyword.
+    # Shouting directions boost amplitude (with natural saturation from clipping).
+    # Quiet directions reduce it. First keyword match in the direction string wins.
+    DIRECTION_VOLUME = {
+        'yelling':      2.0,
+        'shouting':     1.8,
+        'too loudly':   1.7,
+        'loudly':       1.6,
+        'calling out':  1.6,
+        'calling':      1.5,
+        'whispering':   0.35,
+        'whispered':    0.35,
+        'under breath': 0.40,
+        'to himself':   0.45,
+        'to herself':   0.45,
+        'murmuring':    0.45,
+        'muttering':    0.50,
+        'quietly':      0.50,
+        'hissing':      0.50,
+        'feebly':       0.50,
+        'weakly':       0.50,
+    }
+
+    # Directions that also get a high-pass filter to thin out bass (more breathy)
+    WHISPER_DIRECTIONS = {
+        'whispering', 'whispered', 'under breath', 'to himself', 'to herself',
+    }
+
+    def process(self, wav, sr: int, stage_direction: Optional[str] = None):
         """Apply all audio post-processing steps."""
         import numpy as np
 
@@ -693,6 +721,37 @@ class AudioPostProcessor:
         wav = self._normalize_loudness(wav)
         wav = self._add_noise_floor(wav, sr)
         wav = self._add_end_padding(wav, sr)
+        wav = self._apply_direction_effects(wav, sr, stage_direction)
+
+        return wav
+
+    def _apply_direction_effects(self, wav, sr: int, stage_direction: Optional[str]):
+        """Apply volume scaling and DSP effects based on stage direction."""
+        if not stage_direction:
+            return wav
+
+        import numpy as np
+
+        direction_lower = stage_direction.lower().strip()
+
+        # Volume scaling — first keyword match wins
+        volume = 1.0
+        for keyword, mult in self.DIRECTION_VOLUME.items():
+            if keyword in direction_lower:
+                volume = mult
+                break
+
+        if volume != 1.0:
+            wav = np.clip(wav * volume, -1.0, 1.0)
+
+        # High-pass filter for whisper directions: subtract a short running average
+        # to remove bass, making the voice sound thin and breathy.
+        is_whisper = any(kw in direction_lower for kw in self.WHISPER_DIRECTIONS)
+        if is_whisper:
+            window = max(1, int(sr * 0.003))  # ~3 ms window ≈ cut below ~330 Hz
+            kernel = np.ones(window, dtype=np.float32) / window
+            low_pass = np.convolve(wav, kernel, mode='same')
+            wav = np.clip(wav - 0.7 * low_pass, -1.0, 1.0)
 
         return wav
 
@@ -1059,7 +1118,7 @@ class TTSGenerator:
                 wav, sr = self._generate_clone(clean_text, character, full_instruction)
             else:
                 wav, sr = self._generate_design(clean_text, full_instruction)
-            wav = self.audio_postprocessor.process(wav, sr)
+            wav = self.audio_postprocessor.process(wav, sr, stage_direction)
             score = self._score_quality(wav, sr)
             scores.append(score)
 
