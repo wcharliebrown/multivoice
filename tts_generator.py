@@ -895,16 +895,24 @@ class TTSGenerator:
         """Load UTMOSv2 model for scoring TTS quality."""
         if self.quality_model is not None:
             return
-        import utmosv2
-        # Use CPU for UTMOSv2 — it's a small model and MPS triggers CUDA errors internally
-        print("Loading UTMOSv2 quality model on cpu")
-        self.quality_model = utmosv2.create_model(pretrained=True, device="cpu")
-        print("  UTMOSv2 loaded")
+        try:
+            import utmosv2
+            # Use CPU for UTMOSv2 — it's a small model and MPS triggers CUDA errors internally
+            print("Loading UTMOSv2 quality model on cpu")
+            self.quality_model = utmosv2.create_model(pretrained=True, device="cpu")
+            print("  UTMOSv2 loaded")
+        except ImportError:
+            print("  Warning: utmosv2 not installed — quality scoring disabled, using first take only.")
+            print("  Install with: pip install git+https://github.com/sarulab-speech/UTMOSv2.git")
+            self.quality_model = "disabled"
 
     def _score_quality(self, wav, sr: int) -> float:
-        """Score audio quality using UTMOSv2. Returns MOS score (1.0-5.0)."""
-        import torch
+        """Score audio quality using UTMOSv2. Returns MOS score (1.0-5.0).
+        Returns MOS_THRESHOLD if UTMOSv2 is unavailable (accepts first take)."""
         self._load_quality_model()
+        if self.quality_model == "disabled":
+            return self.MOS_THRESHOLD  # Always accept; skip retakes
+        import torch
         # UTMOSv2 expects 16kHz; resample if needed
         if sr != 16000:
             import torchaudio
