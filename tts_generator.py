@@ -1184,12 +1184,16 @@ class TTSGenerator:
         total_lines = sum(len(scene.lines) for scene in chapter.scenes)
         print(f"  Total dialogue lines: {total_lines}")
 
-        # Pre-scan to determine which models are needed for this chapter
+        # Pre-scan to determine which models are needed for this chapter.
+        # When both are needed, pre-load clone only (the dominant model for most
+        # chapters); the design model will load lazily on first use.  Loading
+        # design here would immediately unload clone and force a costly reload
+        # for every subsequent clone character.
         if not self.dry_run:
             self._determine_needed_models([chapter])
             if self._needs_clone:
                 self._load_clone_model()
-            if self._needs_design:
+            elif self._needs_design:
                 self._load_design_model()
 
         stats_path = output_dir / f"ch{chapter.number:02d}_stats.txt"
@@ -1252,7 +1256,7 @@ class TTSGenerator:
             self._determine_needed_models([chapter])
             if self._needs_clone:
                 self._load_clone_model()
-            if self._needs_design:
+            elif self._needs_design:
                 self._load_design_model()
 
         stats_path = output_dir / f"ch{chapter.number:02d}_stats.txt"
