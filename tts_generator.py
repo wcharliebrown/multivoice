@@ -69,6 +69,8 @@ CHARACTER_SAMPLE_MAP = {
     "LIBRARIAN": "Librarian_sample.wav",
     "CASHIER": "Cashier_sample.wav",
     "HOTEL CLERK": "Hotel_Clerk_sample.wav",
+    "KENT": "Misc_Man_sample.wav",
+    "TEMPLETON": "Misc_Man_sample.wav",
 
 }
 
