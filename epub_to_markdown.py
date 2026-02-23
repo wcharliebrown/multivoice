@@ -26,6 +26,7 @@ Dependencies:
 import argparse
 import re
 import sys
+import warnings
 import zipfile
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -33,9 +34,10 @@ from pathlib import Path
 from urllib.parse import unquote
 
 try:
-    from bs4 import BeautifulSoup, NavigableString, Tag
+    from bs4 import BeautifulSoup, NavigableString, Tag, XMLParsedAsHTMLWarning
+    warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 except ImportError:
-    sys.exit("Missing dependency: pip install beautifulsoup4")
+    sys.exit("Missing dependency: pip install beautifulsoup4 lxml")
 
 
 # ─── ePub parsing ─────────────────────────────────────────────────────────────
@@ -238,7 +240,13 @@ def _is_front_matter(chapter: dict) -> bool:
 # ─── Filename slug ────────────────────────────────────────────────────────────
 
 def _slugify(title: str) -> str:
-    """Convert a title to a filename-safe slug: 'Born Yesterday' → 'Born-Yesterday'."""
+    """Convert a title to a filename-safe slug: 'Born Yesterday' → 'Born-Yesterday'.
+
+    Strips a leading chapter number so ePub titles like '1 The Cube' or
+    'Chapter 3: Marcus' don't produce double-numbered filenames like 01-1-The-Cube.
+    """
+    # Strip leading "1 ", "1- ", "Chapter 1: ", "Chapter 1 - " etc.
+    title = re.sub(r'^(?:chapter\s+)?\d+[\s:\-\.]+', '', title, flags=re.IGNORECASE).strip()
     slug = re.sub(r"[^\w\s-]", "", title)
     slug = re.sub(r"[\s_]+", "-", slug.strip())
     return slug or "Untitled"

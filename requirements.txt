@@ -7,6 +7,10 @@ qwen-tts>=0.0.5
 # Audio file handling
 soundfile>=0.12.0
 
+# ePub to Markdown conversion (epub_to_markdown.py)
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
 # Optional: Flash Attention 2 for better performance (CUDA only)
 # Uncomment if you have an NVIDIA GPU:
 # flash-attn>=2.0.0
