@@ -19,34 +19,20 @@ A novel-to-screenplay-to-audiobook pipeline using [Qwen3-TTS](https://github.com
 
 ## Preparing Your Book
 
-### 1. Export your manuscript
+### 1. Export your manuscript as ePub
 
-Export your book as rich text format (`.rtf`). If you use [Vellum](https://vellum.pub), export from there. Any word processor that can save as RTF or DOCX will work.
+Export your book as an ePub file (`.epub`). Most writing and publishing tools support this — [Vellum](https://vellum.pub), Scrivener, Apple Books Author, or any word processor with an ePub export option.
 
-### 2. Convert to Markdown
+### 2. Convert ePub to Markdown chapters
 
 ```bash
-brew install pandoc
-pandoc Your-Book.rtf -o Your-Book.md
+pip install beautifulsoup4
+python epub_to_markdown.py Your-Book.epub
 ```
 
-For DOCX files, use `pandoc Your-Book.docx -o Your-Book.md`.
+This splits the ePub into one Markdown file per chapter in `chapters/` and generates `chapters/characters.md` with character names extracted by frequency analysis. Filenames follow the pattern `NN-Chapter-Title.md`.
 
-### 3. Split into chapters using Claude Code
-
-```
-Prompt: Split the file @Your-Book.md into separate .md files, one per chapter.
-         Save them in chapters/
-```
-
-### 4. Create character list using Claude Code
-
-```
-Prompt: Scan the chapter files one at a time and create a file of major and minor
-         characters with descriptions characters.md
-```
-
-### 5. Create screenplay from novel format using Claude Code
+### 3. Convert chapters to screenplay format using Claude Code
 
 ```
 Prompt: For each chapter file in chapters/ create a new file in chapters/screenplay/
@@ -54,11 +40,18 @@ Prompt: For each chapter file in chapters/ create a new file in chapters/screenp
          a multi-voice audiobook
 ```
 
-### 6. Record or source voice samples (optional but recommended)
+### 4. Review and expand characters.md using Claude Code
+
+```
+Prompt: Review chapters/characters.md and scan the chapter files to add descriptions,
+         roles, and personality notes for each character
+```
+
+### 5. Record or source voice samples (optional but recommended)
 
 For each major character, record a clean 10-30 second WAV of natural speech and place it in `character_samples/` named `Character_Name_sample.wav` (spaces become underscores). See `character_samples_examples/README.md` for naming conventions and requirements. Characters with samples use voice cloning for significantly better quality. Characters without samples will use AI-generated voices from text descriptions.
 
-### 7. Configure character voices using Claude Code
+### 6. Configure character voices using Claude Code
 
 Copy the example config as a starting point:
 
@@ -69,8 +62,8 @@ cp voice_config_example.json voice_config.json
 Then use Claude Code to populate it from your character list:
 
 ```
-Prompt: Read characters.md and generate a voice_config.json with detailed voice
-         descriptions for each character suitable for text-to-speech synthesis
+Prompt: Read characters/characters.md and generate a voice_config.json with detailed
+         voice descriptions for each character suitable for text-to-speech synthesis
 ```
 
 Edit `voice_config.json` afterward to fine-tune any descriptions. This file is kept out of the repo (via `.gitignore`) since it contains project-specific character data.
@@ -122,19 +115,17 @@ python tts_generator.py --chapter 1 --line 11 --assemble
 ## End-to-End Workflow
 
 ```
-Export manuscript (.rtf)
+Export manuscript (.epub)
         |
-    pandoc -> .md
+    python epub_to_markdown.py book.epub   # splits into chapters/ + characters.md
         |
-    Split into chapters/
+    Claude Code: convert chapters to screenplay format in chapters/screenplay/
         |
-    Create characters.md
+    Claude Code: expand characters.md with descriptions
         |
-    Create chapters/screenplay/
+    Record voice samples -> character_samples/   (optional)
         |
-    Record voice samples -> character_samples/
-        |
-    Generate voice_config.json
+    Claude Code: generate voice_config.json from characters.md
         |
     python tts_generator.py --dry-run          # verify parsing
         |
@@ -202,6 +193,7 @@ The first run downloads the Qwen3-TTS models (~3.5GB) and UTMOSv2 weights. Subse
 ```
 .
 ├── tts_generator.py          # Main pipeline script
+├── epub_to_markdown.py       # ePub → per-chapter Markdown converter
 ├── voice_config.json         # Character voice descriptions (not in repo)
 ├── voice_config_example.json # Example voice config template
 ├── character_samples/        # Reference WAV files for voice cloning (not in repo)
