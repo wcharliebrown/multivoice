@@ -80,26 +80,14 @@ MODEL_VOICE_CLONE = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 
 # Default voice descriptions for Qwen3-TTS VoiceDesign model
 # These are natural language descriptions used to synthesize character voices
-DEFAULT_VOICE_DESCRIPTIONS = {
-    "MARTIN": "A middle-aged male voice with a distinctive gravelly, raspy quality similar to Danny DeVito. Warm but sardonic tone, slightly nasal, with occasional comedic timing in delivery.",
-    "MARTIN (V.O.)": "A middle-aged male voice with a distinctive gravelly, raspy quality similar to Danny DeVito. Warm but sardonic tone for narration, slightly nasal, reflective and introspective quality.",
-    "ANGEL": "A young adult female voice in her twenties. Street-smart and tough with an edge, but capable of warmth. American accent, slightly husky, quick-tempered delivery.",
-    "NANNA": "An elderly woman's voice, warm and grandmotherly. Gentle with an infectious, childlike giggle. Slightly frail but spirited.",
-    "NARRATOR": "A neutral, professional male narrator voice. Clear, measured delivery suitable for chapter summaries and front/back matter.",
-    "HOMELESS GUY": "A tired, world-weary older male voice. Slow, mumbling delivery suggesting exhaustion and disinterest.",
-    "THOMAS": "A cold, artificial-sounding male voice with precise diction. Condescending and manipulative tone.",
-    "THURBER": "A sophisticated male voice with a British accent. Intelligent, measured, and slightly menacing undertone.",
-    "REGGIE": "A warm, patient male voice with calm demeanor. Thoughtful and genuinely concerned, friendly like a helpful assistant.",
-    "KENT": "A young adult male voice, enthusiastic and nerdy. American accent, eager and somewhat naive.",
-    "JAMES DIXON": "A young adult male voice, quieter and more reserved than Kent. Thoughtful and observant.",
-    "ANITA": "A female AI voice, clear and precise with slight artificial quality. Quick and intelligent delivery.",
-    "HUDSON": "A male AI voice, neutral and measured. Calm and analytical.",
-    "M": "A young adult female voice with enhanced confidence. Adventurous, self-reliant, curious intonation.",
-    "AGENT BONNEVILLE": "A middle-aged male FBI agent voice. Professional, persistent, slightly gruff American accent.",
-    "BRAD MURPHY": "A strong, masculine farmer's voice. Midwestern American accent, straightforward and caring.",
-    "TEMPLETON": "A middle-aged male professional voice. Slightly officious, measured bureaucratic tone.",
-    "QUAN": "A young boy's voice around ten years old. Curious and excited, with slight Chinese accent.",
-}
+import json
+
+def load_voice_descriptions(config_path=VOICE_CONFIG_FILE):
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+        return config.get("voices", {})
+
+DEFAULT_VOICE_DESCRIPTIONS = load_voice_descriptions()
 
 # Emotion and delivery mappings for stage directions
 # These are combined with character voice descriptions when stage directions are present
@@ -316,7 +304,7 @@ class ScreenplayParser:
     # Regex patterns for parsing
     CHAPTER_HEADER = re.compile(r'^#\s+Chapter\s+(\d+):\s+(.+)$', re.IGNORECASE)
     SCENE_HEADER = re.compile(r'^###\s+SCENE\s+(\d+):\s+(.+)$', re.IGNORECASE)
-    CHARACTER_LINE = re.compile(r'^([A-Z][A-Z\s\-_]+(?:\s*\([^)]+\))?)$')
+    CHARACTER_LINE = re.compile(r'^([A-Z][A-Z\d\s\-_]+(?:\s*\([^)]+\))?)$')
     STAGE_DIRECTION = re.compile(r'^\(([^)]+)\)$')
     CHAPTER_END = re.compile(r'^\*\*END OF CHAPTER', re.IGNORECASE)
     CHAPTER_SUMMARY = re.compile(r'^###\s+CHAPTER SUMMARY', re.IGNORECASE)
